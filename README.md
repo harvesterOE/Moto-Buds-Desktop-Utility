@@ -2,18 +2,28 @@
 
 An open-source, fully-featured desktop utility for configuring and controlling Motorola Moto Buds natively on Windows. This project successfully reverse-engineers the proprietary Bluetooth RFCOMM communication protocol used by the official Android application and implements a beautiful, premium skeuomorphic desktop user interface using React and Electron.
 
-**This is the `dev-windows` branch**, specifically tailored and compiled as a standalone native Windows executable.
+> **Fork notice:** this is a fork of [ThisWasAryan/MotoBudsDesktopUtility](https://github.com/ThisWasAryan/MotoBudsDesktopUtility) (GPL-3.0), based on its `dev-windows` branch. All credit for the protocol reverse engineering and the UI goes to the original author.
+>
+> **What this fork changes (v2.2.0):**
+> - **Works with any Moto Buds, including Moto Buds+.** The original build was hardcoded to the developer's own earbuds (a fixed MAC address). The backend now auto-detects your paired "moto buds" device on Windows.
+> - **Connects by Bluetooth service, not by a fixed channel.** The control service's RFCOMM channel number changes between connections on the Moto Buds+, so the old fixed channel 16 failed. On Windows the app now connects to the control service UUID `fc9d9fe0-4899-11ee-be56-0242ac120002` and lets Windows look up the channel.
+> - **Retries really retry.** Each connection attempt now uses a fresh socket. Before, every retry after the first failed with `WinError 10022`.
+> - Renamed to **Moto Buds Desktop Utility**.
+>
+> Tip: the earbuds accept only one control connection at a time. If the app can't connect, close the Moto Buds app on your phone (or turn the phone's Bluetooth off).
+
+**This is the `windows` branch**, specifically tailored and compiled as a standalone native Windows executable.
 
 ## System Tray Integration & Background Operation
 
-MotoBudsDesktopUtility includes a seamless system tray integration that allows the application to continue running in the background after the main window is closed. This provides instant access to your earbuds without cluttering your taskbar.
+Moto Buds Desktop Utility includes a seamless system tray integration that allows the application to continue running in the background after the main window is closed. This provides instant access to your earbuds without cluttering your taskbar.
 
 ### How to Pin the App to the Taskbar
 
 By default, Windows hides new system tray icons inside the overflow menu (the small `^` arrow on your taskbar). To keep the Moto Buds icon always visible for quick access:
 1. Right-click your Windows Taskbar and select **Taskbar settings**.
 2. Expand the **Other system tray icons** section.
-3. Find **MotoBudsDesktopUtility** in the list and toggle the switch to **On**.
+3. Find **Moto Buds Desktop Utility** in the list and toggle the switch to **On**.
 
 ### Tray Features
 
@@ -129,12 +139,12 @@ The following functionalities are confirmed to be **100% working natively on Win
 
 ## Installation & Download
 
-MotoBudsDesktopUtility provides pre-compiled binaries that include absolutely everything you need, bundling a local Python environment so you do not need to install Python or any dependencies on your system.
+Moto Buds Desktop Utility provides pre-compiled binaries that include absolutely everything you need, bundling a local Python environment so you do not need to install Python or any dependencies on your system.
 
-1. **Download the latest release**: Navigate to the [Releases](https://github.com/ThisWasAryan/MotoBudsDesktopUtility/releases) page.
+1. **Download the latest release**: Navigate to the [Releases](https://github.com/harvesterOE/Moto-Buds-Desktop-Utility/releases) page.
 2. **Choose your version**:
-   - `MotoBudsDesktopUtility Setup X.X.X.exe` (Recommended: Full installation wizard that adds the app to your Start Menu and creates shortcuts).
-   - `MotoBudsDesktopUtility X.X.X.exe` (Portable: Runs instantly without installation).
+   - `Moto Buds Desktop Utility Setup X.X.X.exe` (Recommended: Full installation wizard that adds the app to your Start Menu and creates shortcuts).
+   - `Moto Buds Desktop Utility X.X.X.exe` (Portable: Runs instantly without installation).
 3. **Run the application**: Make sure your Moto Buds are connected to your Windows Bluetooth settings before clicking "Connect" in the app!
 
 ## Building from Source
@@ -145,9 +155,9 @@ If you wish to build the Windows application from source or contribute to the pr
 1. Ensure you have Node.js installed.
 2. Clone this repository and checkout the `dev-windows` branch:
    ```bash
-   git clone https://github.com/ThisWasAryan/MotoBudsDesktopUtility.git
-   cd MotoBudsDesktopUtility
-   git checkout dev-windows
+   git clone https://github.com/harvesterOE/Moto-Buds-Desktop-Utility.git
+   cd Moto-Buds-Desktop-Utility
+   git checkout windows
    ```
 3. Install the necessary Node modules:
    ```bash

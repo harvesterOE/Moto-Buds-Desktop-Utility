@@ -66,7 +66,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.thiswasaryan.motobuds');
+    app.setAppUserModelId('com.harvesteroe.motobuds');
   }
   createWindow();
 

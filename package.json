@@ -1,7 +1,7 @@
 {
   "name": "motobudsdesktoputility",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "author": {
     "name": "ThisWasAryan"
   },
@@ -48,8 +48,8 @@
     "nan": "^2.22.0"
   },
   "build": {
-    "appId": "com.thiswasaryan.motobuds",
-    "productName": "MotoBudsDesktopUtility",
+    "appId": "com.harvesteroe.motobuds",
+    "productName": "Moto Buds Desktop Utility",
     "copyright": "Aryan Raj",
     "icon": "build/icon.png",
     "directories": {

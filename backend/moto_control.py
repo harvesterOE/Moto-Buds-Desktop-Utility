@@ -7,15 +7,60 @@ import sys
 import json
 import subprocess
 
-CLASSIC_MAC = "54:84:50:92:78:AE"
+CLASSIC_MAC = "54:84:50:92:78:AE"  # fallback when no paired buds are found (upstream dev's unit)
 RFCOMM_PORT = 16
+# Moto Buds+ control service. Its RFCOMM channel number is not stable, so on Windows we
+# connect by service UUID and let Windows do the SDP lookup instead of using RFCOMM_PORT.
+CONTROL_UUID = "fc9d9fe0-4899-11ee-be56-0242ac120002"
 
 HEAD = b"HEAD"
 TAIL = b"TAIL"
 
+
+def find_paired_buds_mac():
+    """Return the MAC of the first paired device whose name starts with 'moto buds' (Windows only)."""
+    if sys.platform != "win32":
+        return None
+    import winreg
+    try:
+        devices = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices")
+    except OSError:
+        return None
+    i = 0
+    while True:
+        try:
+            addr = winreg.EnumKey(devices, i)
+        except OSError:
+            return None
+        i += 1
+        try:
+            name = bytes(winreg.QueryValueEx(winreg.OpenKey(devices, addr), "Name")[0]).split(b"\0")[0]
+        except OSError:
+            continue
+        if name.decode("utf-8", "replace").lower().startswith("moto buds"):
+            return ":".join(addr[j:j + 2] for j in range(0, 12, 2)).upper()
+
+
+def _connect_by_uuid(sock, mac, service_uuid):
+    """Winsock connect via SOCKADDR_BTH with a service GUID (port 0 = Windows resolves the channel)."""
+    import ctypes, uuid
+
+    class SOCKADDR_BTH(ctypes.Structure):
+        _pack_ = 1  # ws2bth.h declares it inside pshpack1
+        _fields_ = [("family", ctypes.c_ushort), ("addr", ctypes.c_ulonglong),
+                    ("guid", ctypes.c_byte * 16), ("port", ctypes.c_ulong)]
+
+    ws2 = ctypes.WinDLL("ws2_32")
+    ws2.connect.argtypes = [ctypes.c_size_t, ctypes.c_void_p, ctypes.c_int]
+    guid = (ctypes.c_byte * 16).from_buffer_copy(uuid.UUID(service_uuid).bytes_le)
+    addr = SOCKADDR_BTH(socket.AF_BLUETOOTH, int(mac.replace(":", ""), 16), guid, 0)
+    if ws2.connect(sock.fileno(), ctypes.byref(addr), ctypes.sizeof(addr)) != 0:
+        raise OSError(f"WSA error {ws2.WSAGetLastError()} connecting to service {service_uuid}")
+
+
 class MotoBudsController:
-    def __init__(self, mac_address=CLASSIC_MAC, port=RFCOMM_PORT, output_json=False, is_daemon=False):
-        self.mac_address = mac_address
+    def __init__(self, mac_address=None, port=RFCOMM_PORT, output_json=False, is_daemon=False):
+        self.mac_address = mac_address or find_paired_buds_mac() or CLASSIC_MAC
         self.port = port
         self.sock = None
         self.output_json = output_json
@@ -28,21 +73,28 @@ class MotoBudsController:
             print(msg)
 
     def connect(self):
-        self.log(f"[*] Connecting to {self.mac_address} on Port {self.port}...")
-        if self.mac_address == "127.0.0.1":
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        else:
-            self.sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-        self.sock.settimeout(3.0)
-        
+        by_uuid = sys.platform == "win32" and self.mac_address != "127.0.0.1"
+        self.log(f"[*] Connecting to {self.mac_address} on " + (f"service {CONTROL_UUID}..." if by_uuid else f"Port {self.port}..."))
+
         for attempt in range(5):
+            # Fresh socket per attempt: a socket whose connect failed can't be reused (WinError 10022).
+            if self.mac_address == "127.0.0.1":
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            else:
+                self.sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
             try:
-                self.sock.connect((self.mac_address, self.port))
+                if by_uuid:
+                    _connect_by_uuid(self.sock, self.mac_address, CONTROL_UUID)
+                    self.sock.settimeout(3.0)
+                else:
+                    self.sock.settimeout(3.0)
+                    self.sock.connect((self.mac_address, self.port))
                 self.log("[+] Connected successfully!")
                 self._initialization_handshake()
                 return True
             except Exception as e:
                 self.log(f"[-] Connection attempt {attempt+1} failed: {e}")
+                self.sock.close()
                 time.sleep(0.5)
                 
         self.log("[-] Failed to connect after all attempts.")
@@ -234,7 +286,7 @@ def main():
     parser.add_argument("--keepalive", type=int, help="Keep SPP connection alive for N seconds to capture async events")
     parser.add_argument("--sync", action="store_true", help="Sync startup states (ANC, HiRes, Game, InEar)")
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
-    parser.add_argument("--mac", type=str, default=CLASSIC_MAC, help="MAC address or 127.0.0.1 for mock")
+    parser.add_argument("--mac", type=str, default=None, help="MAC address or 127.0.0.1 for mock (default: auto-detect paired Moto Buds on Windows)")
     parser.add_argument("--port", type=int, default=RFCOMM_PORT, help="Port")
     
     args = parser.parse_args()
